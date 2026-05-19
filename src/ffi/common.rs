@@ -1,5 +1,5 @@
+use super::bindings as ffi;
 use crate::error::{CpdbError, Result};
-use crate::ffi;
 use std::ffi::CStr;
 
 pub fn version() -> Result<String> {

@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, feature = "ffi"))]
 mod unit_tests {
     use cpdb_rs::error::CpdbError;
     use cpdb_rs::{Frontend, Options, Settings, init, version};
@@ -222,7 +222,7 @@ mod unit_tests {
 
     #[test]
     fn test_string_conversion_utilities() {
-        use cpdb_rs::util;
+        use cpdb_rs::ffi::util;
         use std::ffi::CString;
 
         // Test valid C string conversion
@@ -240,7 +240,7 @@ mod unit_tests {
 
     #[test]
     fn test_c_options_conversion() {
-        use cpdb_rs::util;
+        use cpdb_rs::ffi::util;
 
         let options = &[("key1", "value1"), ("key2", "value2")];
         match util::to_c_options(options) {

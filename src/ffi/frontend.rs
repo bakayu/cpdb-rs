@@ -1,6 +1,6 @@
+use super::bindings as ffi;
+use super::printer::Printer;
 use crate::error::{CpdbError, Result};
-use crate::ffi;
-use crate::printer::Printer;
 use std::ffi::CString;
 use std::ptr;
 

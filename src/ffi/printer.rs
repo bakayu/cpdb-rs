@@ -1,7 +1,8 @@
+use super::bindings as ffi;
+use super::frontend::Frontend;
+use super::util;
 use crate::error::{CpdbError, Result};
 use crate::options::OptionsCollection;
-use crate::util;
-use crate::{ffi, Frontend};
 use libc::c_char;
 use std::ffi::CString;
 use std::ptr;
@@ -414,12 +415,7 @@ impl Printer {
     pub fn acquire_translations(&self, locale: &str) -> Result<()> {
         let c_locale = CString::new(locale)?;
         unsafe {
-            ffi::cpdbAcquireTranslations(
-                self.raw,
-                c_locale.as_ptr(),
-                None,
-                std::ptr::null_mut(),
-            );
+            ffi::cpdbAcquireTranslations(self.raw, c_locale.as_ptr(), None, std::ptr::null_mut());
         }
         Ok(())
     }

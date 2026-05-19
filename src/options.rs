@@ -1,7 +1,12 @@
+#[cfg(feature = "ffi")]
 use crate::error::{CpdbError, Result};
-use crate::ffi;
-use crate::util;
-use glib_sys::{g_hash_table_iter_init, g_hash_table_iter_next, GHashTableIter};
+#[cfg(feature = "ffi")]
+use crate::ffi::bindings as ffi;
+#[cfg(feature = "ffi")]
+use crate::ffi::util;
+#[cfg(feature = "ffi")]
+use glib_sys::{GHashTableIter, g_hash_table_iter_init, g_hash_table_iter_next};
+#[cfg(feature = "ffi")]
 use std::mem::MaybeUninit;
 
 // ─── Public types ────────────────────────────────────────────────────────────
@@ -59,6 +64,7 @@ impl OptionsCollection {
     /// # Safety
     /// `raw` must be either null or a valid pointer to a fully initialised
     /// `cpdb_options_t` whose `table` field is a valid `GHashTable*`.
+    #[cfg(feature = "ffi")]
     pub unsafe fn from_raw(raw: *mut ffi::cpdb_options_t) -> Result<Self> {
         if raw.is_null() {
             return Err(CpdbError::NullPointer);
@@ -102,8 +108,7 @@ impl OptionsCollection {
                 // Copy each field into an owned String. Null fields become
                 // empty strings so callers never need to check for None.
                 let name = util::cstr_to_string((*opt).option_name).unwrap_or_default();
-                let default_value =
-                    util::cstr_to_string((*opt).default_value).unwrap_or_default();
+                let default_value = util::cstr_to_string((*opt).default_value).unwrap_or_default();
                 let group = util::cstr_to_string((*opt).group_name).unwrap_or_default();
 
                 // supported_values is a char** array of length num_supported.
@@ -164,6 +169,7 @@ impl OptionsCollection {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "ffi")]
     #[test]
     fn null_pointer_returns_null_pointer_error() {
         let result = unsafe { OptionsCollection::from_raw(std::ptr::null_mut()) };
@@ -174,6 +180,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "ffi")]
     #[test]
     fn null_table_returns_empty_collection() {
         // cpdb_options_t with a null `table` field
@@ -183,9 +190,8 @@ mod tests {
             count: 0,
             media_count: 0,
         };
-        let result = unsafe {
-            OptionsCollection::from_raw(&opts as *const _ as *mut ffi::cpdb_options_t)
-        };
+        let result =
+            unsafe { OptionsCollection::from_raw(&opts as *const _ as *mut ffi::cpdb_options_t) };
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }

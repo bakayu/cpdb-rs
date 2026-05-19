@@ -1,9 +1,14 @@
+#[cfg(feature = "ffi")]
 extern crate bindgen;
+#[cfg(feature = "ffi")]
 extern crate pkg_config;
 
+#[cfg(feature = "ffi")]
 use std::env;
+#[cfg(feature = "ffi")]
 use std::path::PathBuf;
 
+#[cfg(feature = "ffi")]
 fn main() {
     println!("cargo:rerun-if-changed=include/wrapper.h");
 
@@ -240,6 +245,7 @@ fn main() {
         .expect("Couldn't write bindings!");
 }
 
+#[cfg(feature = "ffi")]
 fn find_cpdb_libs() -> Option<String> {
     if let Ok(path) = env::var("CPDB_LIBS_PATH") {
         return Some(path);
@@ -271,6 +277,7 @@ fn find_cpdb_libs() -> Option<String> {
     None
 }
 
+#[cfg(feature = "ffi")]
 fn add_system_library_paths() {
     let target = env::var("TARGET").unwrap_or_default();
 
@@ -282,4 +289,9 @@ fn add_system_library_paths() {
         println!("cargo:rustc-link-search=native=/usr/local/lib");
         println!("cargo:rustc-link-search=native=/opt/homebrew/lib");
     }
+}
+
+#[cfg(not(feature = "ffi"))]
+fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
 }

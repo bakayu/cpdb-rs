@@ -1,7 +1,6 @@
-#[cfg(test)]
+#[cfg(all(test, feature = "ffi"))]
 mod tests {
-    use cpdb_rs::frontend::Frontend;
-    use cpdb_rs::job::PrintJob;
+    use cpdb_rs::{Frontend, PrintJob};
     use std::fs;
 
     // Create test file

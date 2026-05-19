@@ -3,23 +3,26 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
-pub mod backend;
-pub mod common;
+pub mod config;
 pub mod error;
-pub mod ffi;
-pub mod frontend;
-pub mod job;
+pub mod events;
+pub mod media;
 pub mod options;
-pub mod printer;
-pub mod settings;
-pub mod util;
 
-// ─── Re-exports ──────────────────────────────────────────────────────────────
+#[cfg(feature = "zbus-backend")]
+pub mod client;
+#[cfg(feature = "zbus-backend")]
+pub mod proxy;
 
-pub use backend::Backend;
-pub use common::{init, version};
-pub use frontend::Frontend;
-pub use job::PrintJob;
-pub use options::{OptionInfo, OptionsCollection};
-pub use printer::Printer;
-pub use settings::{Media, Options, Settings};
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
+#[cfg(feature = "ffi")]
+pub use ffi::{
+    backend::Backend,
+    common::{init, version},
+    frontend::Frontend,
+    job::PrintJob,
+    printer::Printer,
+    settings::{Media, Options, Settings},
+};
