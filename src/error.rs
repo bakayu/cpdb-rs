@@ -54,16 +54,20 @@ pub enum CpdbError {
     /// An I/O error bubbled up from std::io.
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
     /// An unexpected status code was returned.
     #[error("Invalid status code: {0}")]
     InvalidStatus(i32),
+
     /// The requested operation is not supported.
     #[error("Unsupported operation")]
     Unsupported,
+
     /// A D-Bus protocol error occurred.
     #[cfg(feature = "zbus-backend")]
     #[error("D-Bus error: {0}")]
     DbusError(#[from] zbus::Error),
+
     /// A D-Bus FDO standard error occurred.
     #[cfg(feature = "zbus-backend")]
     #[error("D-Bus FDO error: {0}")]
@@ -72,3 +76,29 @@ pub enum CpdbError {
 
 /// Shorthand `Result` alias used throughout the crate.
 pub type Result<T> = std::result::Result<T, CpdbError>;
+
+/// Convert a `cpdb_sys` FFI error into the crate-wide `CpdbError`.
+///
+/// This allows `?` to work across the FFI boundary when calling functions
+/// from `cpdb_sys` modules (e.g. `util`, `printer`) inside `cpdb_rs` code.
+#[cfg(feature = "ffi")]
+impl From<cpdb_sys::error::CpdbError> for CpdbError {
+    fn from(e: cpdb_sys::error::CpdbError) -> Self {
+        match e {
+            cpdb_sys::error::CpdbError::NullPointer => Self::NullPointer,
+            cpdb_sys::error::CpdbError::InvalidPrinter => Self::InvalidPrinter,
+            cpdb_sys::error::CpdbError::NotFound(s) => Self::NotFound(s),
+            cpdb_sys::error::CpdbError::PrinterError(s) => Self::PrinterError(s),
+            cpdb_sys::error::CpdbError::JobFailed(s) => Self::JobFailed(s),
+            cpdb_sys::error::CpdbError::BackendError(s) => Self::BackendError(s),
+            cpdb_sys::error::CpdbError::FrontendError(s) => Self::FrontendError(s),
+            cpdb_sys::error::CpdbError::OptionError(s) => Self::OptionError(s),
+            cpdb_sys::error::CpdbError::Utf8Error(e) => Self::Utf8Error(e),
+            cpdb_sys::error::CpdbError::NulError(e) => Self::NulError(e),
+            cpdb_sys::error::CpdbError::IoError(e) => Self::IoError(e),
+            cpdb_sys::error::CpdbError::InvalidStatus(c) => Self::InvalidStatus(c),
+            cpdb_sys::error::CpdbError::Unsupported => Self::Unsupported,
+            _ => Self::FrontendError(format!("cpdb-sys error: {e}")),
+        }
+    }
+}

@@ -28,7 +28,7 @@ fn error_messages_are_stable() {
 
 #[cfg(all(test, feature = "ffi"))]
 mod ffi_tests {
-    use cpdb_rs::error::CpdbError;
+    use cpdb_rs::ffi::error::CpdbError;
     use cpdb_rs::ffi::util;
     use cpdb_rs::{Frontend, Options, Settings, init, version};
     use std::ffi::CString;
@@ -88,7 +88,6 @@ mod ffi_tests {
 
     #[test]
     fn cstr_to_string_rejects_null() {
-        use cpdb_rs::error::CpdbError;
         let result = unsafe { util::cstr_to_string(std::ptr::null()) };
         assert!(matches!(result, Err(CpdbError::NullPointer)));
     }

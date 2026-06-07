@@ -7,8 +7,9 @@
 //!
 //! # Features
 //!
-//! - `zbus-backend` *(default)* - Async client via [`CpdbClient`].
-//! - `ffi` - C FFI bindings via `cpdb-libs`.
+//! - `zbus-backend` *(default)* - Native async D-Bus client via [`CpdbClient`].
+//!   *(Note: This uses `zbus` with the `tokio` runtime feature exclusively. Other async runtimes like `async-std` are not currently supported by the high-level client).*
+//! - `ffi` - Legacy synchronous C FFI bindings via `cpdb-libs`.
 //!
 //! # Quick start
 //!
@@ -62,12 +63,12 @@ pub use options::{OptionInfo, OptionsCollection};
 pub use client::CpdbClient;
 
 #[cfg(feature = "ffi")]
-pub mod ffi;
+pub use cpdb_sys as ffi;
 
 #[cfg(feature = "ffi")]
-pub use ffi::callbacks::PrinterUpdate;
+pub use cpdb_sys::callbacks::PrinterUpdate;
 #[cfg(feature = "ffi")]
-pub use ffi::{
+pub use cpdb_sys::{
     common::{
         absolute_path, concat_path, concat_sep, init, option_group, system_config_dir,
         user_config_dir, version,

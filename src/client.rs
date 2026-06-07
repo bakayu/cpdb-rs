@@ -20,6 +20,9 @@
 //! ```
 
 use std::collections::HashMap;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
 
 use futures_util::{Stream, StreamExt, stream::SelectAll};
 use zbus::zvariant::OwnedFd;
@@ -29,6 +32,23 @@ use crate::events::{DiscoveryEvent, PrinterSnapshot};
 use crate::media::MediaCollection;
 use crate::options::OptionsCollection;
 use crate::proxy::PrintBackendProxy;
+
+const AUTO_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
+const RETRY_INTERVAL_MS: Duration = Duration::from_millis(200);
+
+macro_rules! retry_dbus {
+    ($proxy:expr, $method:ident($($arg:expr),*)) => {{
+        let __proxy = &($proxy);
+        let mut __result = __proxy.$method($($arg),*).await;
+        if let Err(zbus::Error::MethodError(ref __n, _, _)) = __result {
+            if __n.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" {
+                tokio::time::sleep(RETRY_INTERVAL_MS).await;
+                __result = __proxy.$method($($arg),*).await;
+            }
+        }
+        __result
+    }};
+}
 
 /// A connected CPDB client managing proxies to all discovered print backends.
 ///
@@ -55,7 +75,6 @@ use crate::proxy::PrintBackendProxy;
 /// ```
 #[derive(Clone)]
 pub struct CpdbClient {
-    _connection: zbus::Connection,
     backends: Vec<BackendHandle>,
 }
 
@@ -116,15 +135,12 @@ impl CpdbClient {
                     });
                 }
                 Err(e) => {
-                    eprintln!("cpdb-rs: skipping backend {}: {}", name, e);
+                    log::warn!("cpdb-rs: skipping backend {}: {}", name, e);
                 }
             }
         }
 
-        Ok(Self {
-            _connection: connection,
-            backends,
-        })
+        Ok(Self { backends })
     }
 
     /// Returns the number of connected backends.
@@ -150,32 +166,32 @@ impl CpdbClient {
         let mut printers = Vec::new();
 
         for bh in &self.backends {
-            // GetAllPrinters returns (i32, Vec<(OwnedValue,)>)
-            // Each OwnedValue is a variant wrapping (sssssbss)
-            let mut result = bh.proxy.get_all_printers().await;
-
-            // The backend process may have claimed the well-known D-Bus name before
-            // it finished registering its object path `/`.
-            // If we get an `UnknownMethod` error on the very first call, wait and retry.
-            if let Err(zbus::Error::MethodError(ref name, _, _)) = result {
-                if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" {
-                    std::thread::sleep(std::time::Duration::from_millis(200));
-                    result = bh.proxy.get_all_printers().await;
-                }
-            }
+            let result = retry_dbus!(bh.proxy, get_all_printers());
 
             let (_count, raw_printers) = match result {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!(
+                    log::error!(
                         "cpdb-rs: error fetching printers from {}: {}",
-                        bh.service_name, e
+                        bh.service_name,
+                        e
                     );
                     continue;
                 }
             };
 
-            unpack_printer_variants(&raw_printers, &mut printers);
+            for raw in raw_printers {
+                printers.push(PrinterSnapshot {
+                    id: raw.0,
+                    name: raw.1,
+                    info: raw.2,
+                    location: raw.3,
+                    make_model: raw.4,
+                    accepting_jobs: raw.5,
+                    state: raw.6,
+                    backend: raw.7,
+                });
+            }
         }
 
         Ok(printers)
@@ -191,19 +207,32 @@ impl CpdbClient {
         let mut printers = Vec::new();
 
         for bh in &self.backends {
-            let result = bh.proxy.get_filtered_printer_list().await;
+            let result = retry_dbus!(bh.proxy, get_filtered_printer_list());
+
             let (_count, raw_printers) = match result {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!(
+                    log::error!(
                         "cpdb-rs: error fetching filtered printers from {}: {}",
-                        bh.service_name, e
+                        bh.service_name,
+                        e
                     );
                     continue;
                 }
             };
 
-            unpack_printer_variants(&raw_printers, &mut printers);
+            for raw in raw_printers {
+                printers.push(PrinterSnapshot {
+                    id: raw.0,
+                    name: raw.1,
+                    info: raw.2,
+                    location: raw.3,
+                    make_model: raw.4,
+                    accepting_jobs: raw.5,
+                    state: raw.6,
+                    backend: raw.7,
+                });
+            }
         }
 
         Ok(printers)
@@ -215,10 +244,14 @@ impl CpdbClient {
     /// state. After subscribing to signals, it calls `doListing(true)` on
     /// each backend to trigger initial `PrinterAdded` emissions.
     ///
+    /// A background task is automatically spawned to ping the backends
+    /// periodically, preventing them from timing out. When this stream is
+    /// dropped, the keep-alive task is cancelled.
+    ///
     /// # Errors
     ///
     /// Returns [`CpdbError::DbusError`] if subscribing to D-Bus signals fails.
-    pub async fn discovery_stream(&self) -> Result<impl Stream<Item = DiscoveryEvent>> {
+    pub async fn discovery_stream(&self) -> Result<DiscoveryStream> {
         let mut all: SelectAll<futures_util::stream::BoxStream<'static, DiscoveryEvent>> =
             SelectAll::new();
 
@@ -290,7 +323,19 @@ impl CpdbClient {
             let _ = bh.proxy.do_listing(true).await;
         }
 
-        Ok(all)
+        let client = self.clone();
+        let keep_alive_task = tokio::spawn(async move {
+            let ping_interval = std::time::Duration::from_secs(AUTO_EXIT_TIMEOUT.as_secs() / 2);
+            loop {
+                tokio::time::sleep(ping_interval).await;
+                client.keep_alive_all().await;
+            }
+        });
+
+        Ok(DiscoveryStream {
+            inner: all,
+            keep_alive_task,
+        })
     }
 
     /// Keeps all backends alive to prevent them from auto-exiting.
@@ -305,7 +350,7 @@ impl CpdbClient {
         }
     }
 
-    /// Fetches all options and media for a printer in a D-Bus call.
+    /// Fetches all options and media for a printer in a single D-Bus call.
     ///
     /// This calls the backend's `GetAllOptions` method, which returns both
     /// the printer's capabilities (duplex, color mode, etc.) and its
@@ -327,10 +372,8 @@ impl CpdbClient {
         backend: &str,
     ) -> Result<(OptionsCollection, MediaCollection)> {
         let proxy = self.proxy_for(backend)?;
-        let (_n_opts, raw_opts, _n_media, raw_media) = proxy
-            .get_all_options(printer_id)
-            .await
-            .map_err(CpdbError::from)?;
+        let (_n_opts, raw_opts, _n_media, raw_media) =
+            retry_dbus!(proxy, get_all_options(printer_id)).map_err(CpdbError::from)?;
         Ok((
             OptionsCollection::from_dbus(raw_opts),
             MediaCollection::from_dbus(raw_media),
@@ -354,16 +397,13 @@ impl CpdbClient {
         locale: &str,
     ) -> Result<HashMap<String, String>> {
         let proxy = self.proxy_for(backend)?;
-        proxy
-            .get_all_translations(printer_id, locale)
-            .await
-            .map_err(CpdbError::from)
+        retry_dbus!(proxy, get_all_translations(printer_id, locale)).map_err(CpdbError::from)
     }
 
     /// Returns the default printer ID for a specific backend.
     pub async fn get_default_printer(&self, backend: &str) -> Result<String> {
         let proxy = self.proxy_for(backend)?;
-        proxy.get_default_printer().await.map_err(CpdbError::from)
+        retry_dbus!(proxy, get_default_printer()).map_err(CpdbError::from)
     }
 
     /// Submits a print job and returns a writable file descriptor.
@@ -393,10 +433,11 @@ impl CpdbClient {
         title: &str,
     ) -> Result<(String, OwnedFd)> {
         let proxy = self.proxy_for(backend)?;
-        let (job_id, fd) = proxy
-            .print_fd(printer_id, settings.len() as i32, settings, title)
-            .await
-            .map_err(CpdbError::from)?;
+        let (job_id, fd) = retry_dbus!(
+            proxy,
+            print_fd(printer_id, settings.len() as i32, settings, title)
+        )
+        .map_err(CpdbError::from)?;
         Ok((job_id, fd))
     }
 
@@ -412,10 +453,11 @@ impl CpdbClient {
         title: &str,
     ) -> Result<(String, String)> {
         let proxy = self.proxy_for(backend)?;
-        let (job_id, socket_path) = proxy
-            .print_socket(printer_id, settings.len() as i32, settings, title)
-            .await
-            .map_err(CpdbError::from)?;
+        let (job_id, socket_path) = retry_dbus!(
+            proxy,
+            print_socket(printer_id, settings.len() as i32, settings, title)
+        )
+        .map_err(CpdbError::from)?;
         Ok((job_id, socket_path))
     }
 
@@ -444,7 +486,16 @@ impl CpdbClient {
     fn proxy_for(&self, backend: &str) -> Result<&PrintBackendProxy<'static>> {
         self.backends
             .iter()
-            .find(|b| b.service_name.ends_with(backend) || b.service_name == backend)
+            .find(|b| {
+                if b.service_name == backend {
+                    return true;
+                }
+                if let Some(idx) = b.service_name.rfind('.') {
+                    &b.service_name[idx + 1..] == backend
+                } else {
+                    false
+                }
+            })
             .map(|b| &b.proxy)
             .ok_or_else(|| {
                 CpdbError::BackendError(format!("No backend found matching '{}'", backend))
@@ -452,36 +503,22 @@ impl CpdbClient {
     }
 }
 
-/// Extracts a string from a zbus `Value`, returning an empty string on mismatch.
-fn field_as_str(value: &zbus::zvariant::Value<'_>) -> String {
-    value
-        .downcast_ref::<zbus::zvariant::Str>()
-        .map(|s| s.as_str().to_string())
-        .unwrap_or_default()
+/// A stream of live discovery events that keeps connected backends alive.
+pub struct DiscoveryStream {
+    inner: SelectAll<futures_util::stream::BoxStream<'static, DiscoveryEvent>>,
+    keep_alive_task: tokio::task::JoinHandle<()>,
 }
 
-/// Unpacks variant-wrapped printer structs `(sssssbss)` into `PrinterSnapshot`s.
-fn unpack_printer_variants(raw: &[(zbus::zvariant::OwnedValue,)], out: &mut Vec<PrinterSnapshot>) {
-    for (variant,) in raw {
-        match variant.downcast_ref::<zbus::zvariant::Structure>() {
-            Ok(structure) => {
-                let fields = structure.fields();
-                if fields.len() >= 8 {
-                    out.push(PrinterSnapshot {
-                        id: field_as_str(&fields[0]),
-                        name: field_as_str(&fields[1]),
-                        info: field_as_str(&fields[2]),
-                        location: field_as_str(&fields[3]),
-                        make_model: field_as_str(&fields[4]),
-                        accepting_jobs: fields[5].downcast_ref::<bool>().unwrap_or(false),
-                        state: field_as_str(&fields[6]),
-                        backend: field_as_str(&fields[7]),
-                    });
-                }
-            }
-            Err(_) => {
-                eprintln!("cpdb-rs: unexpected variant in printer list");
-            }
-        }
+impl Stream for DiscoveryStream {
+    type Item = DiscoveryEvent;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.inner).poll_next(cx)
+    }
+}
+
+impl Drop for DiscoveryStream {
+    fn drop(&mut self) {
+        self.keep_alive_task.abort();
     }
 }

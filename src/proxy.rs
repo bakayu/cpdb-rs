@@ -57,6 +57,20 @@ pub struct RawMedia {
     pub margins: Vec<RawMargin>,
 }
 
+/// A printer summary from `GetAllPrinters` or `GetFilteredPrinterList`.
+/// D-Bus signature: `(sssssbss)`.
+#[derive(Debug, Clone, Deserialize, Serialize, Type)]
+pub struct RawPrinter(
+    pub String, // id
+    pub String, // name
+    pub String, // info
+    pub String, // location
+    pub String, // make_and_model
+    pub bool,   // is_accepting_jobs
+    pub String, // state
+    pub String, // backend_name
+);
+
 #[allow(missing_docs)]
 /// Low-level proxy for `org.openprinting.PrintBackend`.
 ///
@@ -64,13 +78,13 @@ pub struct RawMedia {
 #[proxy(interface = "org.openprinting.PrintBackend", assume_defaults = true)]
 pub trait PrintBackend {
     /// Returns all printers known to this backend.
-    fn get_all_printers(&self) -> zbus::Result<(i32, Vec<(zbus::zvariant::OwnedValue,)>)>;
+    fn get_all_printers(&self) -> zbus::Result<(i32, Vec<RawPrinter>)>;
 
     /// Returns the backend name (e.g. "CUPS", "FILE").
     fn get_backend_name(&self) -> zbus::Result<String>;
 
     /// Returns printers matching the current filter settings.
-    fn get_filtered_printer_list(&self) -> zbus::Result<(i32, Vec<(zbus::zvariant::OwnedValue,)>)>;
+    fn get_filtered_printer_list(&self) -> zbus::Result<(i32, Vec<RawPrinter>)>;
 
     /// Starts or stops printer discovery. Call `do_listing(true)` to trigger
     /// `PrinterAdded` signals for all known printers.
