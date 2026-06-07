@@ -28,7 +28,7 @@ zbus = { version = "5.15.0", default-features = false, features = [
 ], optional = true }
 futures-util = "0.3"
 tokio = "1"
-cpdb-sys = { path = "cpdb-sys", optional = true }
+cpdb-sys = { path = "cpdb-sys", version = "0.1.0", optional = true }
 
 [features]
 default = ["zbus-backend"]
