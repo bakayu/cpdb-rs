@@ -14,8 +14,8 @@
 //! Both trampolines wrap the user closure in `catch_unwind` so a Rust
 //! panic does not unwind across the FFI boundary (which is UB).
 
-use crate::ffi;
-use crate::ffi::printer::Printer;
+use crate::bindings as ffi;
+use crate::printer::Printer;
 use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, OnceLock};

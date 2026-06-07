@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** The C-FFI interface is behind the `ffi` feature flag and has been moved to the underlying `cpdb-sys` crate. The default feature is now `zbus-backend`.
 - **BREAKING:** `Printer` now carries a lifetime parameter tied to its
   `Frontend`. Borrowed printers cannot outlive their frontend — the borrow
   checker enforces this. `Printer::load_from_file` returns a `Printer<'static>`.

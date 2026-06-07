@@ -144,18 +144,28 @@ dependencies = [
 name = "cpdb-rs"
 version = "0.1.0"
 dependencies = [
- "bindgen",
+ "cpdb-sys",
  "futures-util",
  "glib-sys",
  "libc",
  "log",
- "pkg-config",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror",
  "tokio",
  "zbus",
+]
+
+[[package]]
+name = "cpdb-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "glib-sys",
+ "libc",
+ "pkg-config",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,3 +1,6 @@
+[workspace]
+members = ["cpdb-sys"]
+
 [package]
 name = "cpdb-rs"
 version = "0.1.0"
@@ -9,8 +12,6 @@ categories = ["api-bindings", "os::unix-apis"]
 readme = "README.md"
 repository = "https://github.com/OpenPrinting/cpdb-rs"
 rust-version = "1.85"
-build = "build.rs"
-links = "cpdb"
 
 [package.metadata.docs.rs]
 all-features = false
@@ -19,29 +20,27 @@ targets = ["x86_64-unknown-linux-gnu"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-libc = { version = "0.2", optional = true }
 thiserror = "2.0"
 log = "0.4"
-glib-sys = { version = "0.22", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 zbus = { version = "5.15.0", default-features = false, features = [
     "tokio",
 ], optional = true }
 futures-util = "0.3"
-
-[build-dependencies]
-bindgen = { version = "0.72", optional = true }
-pkg-config = { version = "0.3", optional = true }
+tokio = "1"
+cpdb-sys = { path = "cpdb-sys", optional = true }
 
 [features]
 default = ["zbus-backend"]
-ffi = ["dep:libc", "dep:glib-sys", "dep:bindgen", "dep:pkg-config"]
+ffi = ["dep:cpdb-sys"]
 zbus-backend = ["dep:zbus"]
 
 [dev-dependencies]
 tempfile = "3.27"
 serde_json = "1.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+libc = "0.2"
+glib-sys = "0.22"
 
 [[example]]
 name = "ffi_basic_usage"
@@ -64,16 +63,16 @@ path = "examples/zbus_test.rs"
 required-features = ["zbus-backend"]
 
 [[example]]
-name = "test_filtering"
-path = "examples/test_filtering.rs"
+name = "filter_printers"
+path = "examples/filter_printers.rs"
 required-features = ["zbus-backend"]
 
 [[example]]
-name = "test_translations"
-path = "examples/test_translations.rs"
+name = "get_translations"
+path = "examples/get_translations.rs"
 required-features = ["zbus-backend"]
 
 [[example]]
-name = "test_print_job"
-path = "examples/test_print_job.rs"
+name = "print_a_document"
+path = "examples/print_a_document.rs"
 required-features = ["zbus-backend"]

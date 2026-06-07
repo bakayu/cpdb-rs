@@ -17,7 +17,7 @@ The library uses [`zbus`](https://crates.io/crates/zbus) and [`tokio`](https://c
 - **Pure Rust D-Bus Client:** No `libcpdb-dev` or C compiler needed! Everything runs natively over D-Bus using `zbus`.
 - **Async First:** All methods are `async` and powered by Tokio.
 - **Live Discovery:** Subscribe to a native Rust `Stream` for real-time printer additions, removals, and state changes.
-- **Robust Auto-Retry:** Handles D-Bus activation race conditions automatically.
+- **Activation Retry:** Gracefully retries printer discovery to handle D-Bus activation race conditions.
 - **Keep-Alive Management:** Automatically pings backends to keep them active in the background.
 - *(Optional)* **Legacy C-FFI bindings** available via the `ffi` feature flag.
 
@@ -150,9 +150,12 @@ Instead of linking against `libcpdb.so` and using `bindgen` (which required unsa
 - **100% Safe Rust:** No raw pointers, no manual memory management, no undefined behavior.
 - **Zero C Dependencies:** You don't need `libcpdb-dev` to compile.
 - **Async Tokio Integration:** `zbus` integrates perfectly with Tokio, allowing you to await D-Bus calls and use Rust `Stream`s for live discovery events.
-- **Startup Stability:** Implements internal retry loops to gracefully handle `UnknownMethod` race conditions when systemd auto-activates D-Bus backends.
+- **Activation Retries:** Automatically retries initial calls to handle `UnknownMethod` race conditions when systemd auto-activates D-Bus backends.
 
 ## Legacy Architecture (C-FFI)
+
+> [!WARNING]  
+> The C-FFI interface is behind the `ffi` feature flag and has been moved to the underlying `cpdb-sys` crate. The default feature is now `zbus-backend`. To continue using `cpdb_rs::Frontend`, update your `Cargo.toml` to: `cpdb-rs = { default-features = false, features = ["ffi"] }`.
 
 If you have legacy code that still requires the synchronous C-FFI wrappers around `cpdb-libs`, they are still available by enabling the `ffi` feature flag in your `Cargo.toml`. See the `ffi` module documentation for details.
 
