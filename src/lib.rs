@@ -38,6 +38,16 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(missing_docs)]
 
+// cpdb-libs is a Unix/D-Bus library — there is no Windows port. Fail fast
+// with a useful message instead of letting bindgen emit a confusing linker
+// error. WSL Ubuntu is the supported path on Windows hosts; see README.
+#[cfg(all(windows, not(docsrs)))]
+compile_error!(
+    "cpdb-rs only supports Unix targets (Linux fully supported, macOS \
+     headers-only). cpdb-libs has no Windows port. If you are on Windows, \
+     develop inside WSL (Ubuntu)."
+);
+
 pub mod error;
 pub mod options;
 

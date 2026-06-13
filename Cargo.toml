@@ -11,8 +11,18 @@ keywords = ["printing", "cups", "openprinting", "dbus", "cpdb"]
 categories = ["api-bindings", "asynchronous", "os::unix-apis"]
 readme = "README.md"
 repository = "https://github.com/OpenPrinting/cpdb-rs"
+homepage = "https://openprinting.github.io/"
+documentation = "https://docs.rs/cpdb-rs"
 rust-version = "1.85"
-exclude = ["PRODUCTION_READINESS.md"]
+exclude = [
+    ".github/",
+    "PRODUCTION_READINESS.md",
+    "RELEASE_GOVERNANCE.md",
+    "PUBLISHING.md",
+    "deny.toml",
+    "rustfmt.toml",
+    ".gitignore",
+]
 
 [package.metadata.docs.rs]
 all-features = false
