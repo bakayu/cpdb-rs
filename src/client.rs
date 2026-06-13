@@ -330,7 +330,8 @@ impl CpdbClient {
             if let Err(e) = bh.proxy.do_listing(true).await {
                 log::warn!(
                     "cpdb-rs: do_listing failed for {}, discovery stream may be empty: {}",
-                    bh.service_name, e
+                    bh.service_name,
+                    e
                 );
             }
         }
