@@ -54,6 +54,12 @@ jobs:
       - name: Build (all targets)
         run: cargo build --all-targets --all-features --verbose
 
+      - name: Build (ffi-only, no zbus)
+        run: cargo build --no-default-features --features ffi --verbose
+
+      - name: Build (zbus-only, no ffi)
+        run: cargo build --no-default-features --features zbus-backend --verbose
+
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
@@ -61,6 +67,11 @@ jobs:
         env:
           LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
         run: cargo test --all-targets --all-features --verbose
+
+      - name: Run unit tests (zbus-only)
+        env:
+          LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
+        run: cargo test --no-default-features --features zbus-backend --verbose
 
       - name: D-Bus smoke test (ignored integration tests)
         env:
