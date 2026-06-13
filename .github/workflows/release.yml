@@ -5,13 +5,15 @@ on:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
+# Default least-privilege. Each job declares what it actually needs.
+permissions: {}
 
 jobs:
   verify:
     name: Verify (Ubuntu)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -62,13 +64,61 @@ jobs:
             exit 1
           fi
 
-      - name: Cargo publish (dry run)
-        run: cargo publish --dry-run --verbose
+  publish:
+    name: Publish to crates.io (Trusted Publishing)
+    needs: verify
+    runs-on: ubuntu-latest
+    # `id-token: write` is REQUIRED for crates.io Trusted Publishing.
+    # The crates-io-auth-action exchanges the workflow's OIDC identity
+    # for a short-lived (~30 minute), auto-revoked crates.io API token.
+    # No long-lived secret is read or stored.
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config autoconf automake libtool libtool-bin gettext autopoint \
+            libglib2.0-dev libdbus-1-dev \
+            libcups2-dev cups \
+            libavahi-common-dev libavahi-client-dev
+
+      - name: Build and install cpdb-libs
+        run: |
+          git clone --depth=1 https://github.com/OpenPrinting/cpdb-libs.git ~/cpdb-libs
+          cd ~/cpdb-libs
+          ./autogen.sh || autoreconf -fi
+          ./configure --prefix=/usr
+          make -j"$(nproc)"
+          sudo make install
+          sudo ldconfig
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Authenticate with crates.io (Trusted Publishing)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
+        run: cargo publish --verbose
 
   release:
     name: GitHub Release
-    needs: verify
+    needs: publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 

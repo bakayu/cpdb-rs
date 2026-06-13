@@ -8,9 +8,23 @@ keywords = ["printing", "cups", "openprinting", "ffi", "cpdb"]
 categories = ["api-bindings", "os::unix-apis"]
 readme = "README.md"
 repository = "https://github.com/OpenPrinting/cpdb-rs"
+homepage = "https://openprinting.github.io/"
+documentation = "https://docs.rs/cpdb-rs"
 rust-version = "1.85"
 build = "build.rs"
 links = "cpdb"
+# Internal project docs and CI config aren't useful to consumers and just bloat
+# the .crate tarball. include/wrapper.h MUST stay in the package — build.rs
+# feeds it to bindgen at the consumer's build time.
+exclude = [
+    ".github/",
+    "PRODUCTION_READINESS.md",
+    "RELEASE_GOVERNANCE.md",
+    "PUBLISHING.md",
+    "deny.toml",
+    "rustfmt.toml",
+    ".gitignore",
+]
 
 [package.metadata.docs.rs]
 all-features = false

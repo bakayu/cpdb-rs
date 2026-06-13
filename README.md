@@ -23,37 +23,65 @@ error handling on top of bindgen-generated FFI.
 - **Option & translation lookup**, including localised labels
 - **Media information** — sizes and per-media margin tables
 - **Memory-safe** — owned/borrowed split enforced by lifetimes
-- **Linux-first**; macOS supports a headers-only verification build
+
+## Supported platforms
+
+| Target | Status | Notes |
+|---|---|---|
+| Linux (any glibc distro) | ✅ Fully supported | The intended target. CI runs on Ubuntu. |
+| macOS | ⚠️ Headers-only | Bindgen can parse the headers and the crate compiles with `CPDB_NO_LINK=1`, but linking requires Linux D-Bus. Useful only for compile-checking. |
+| Windows | ❌ Not supported | cpdb-libs has no Windows port (D-Bus / GLib stack). Compilation will hard-fail with a `compile_error!`. Develop inside [WSL Ubuntu](https://learn.microsoft.com/windows/wsl/install) — the repository on `/mnt/c/…` is reachable from WSL. |
 
 ## Prerequisites
 
-### System dependencies
+### cpdb-libs (≥ 3.0)
 
-Install the cpdb-libs C library and GLib headers.
+cpdb-rs targets the cpdb-libs **3.x ABI**.
+
+> ⚠️ **Distro packages may be too old.** As of mid-2026, Debian / Ubuntu
+> ship cpdb-libs **2.0~b5** in `libcpdb-dev`. That is incompatible with
+> this crate — installing it leaves you with both `libcpdb.so.2`
+> (from apt) and `libcpdb.so.3` (from source) and the linker picks the
+> wrong one. Either:
+>
+> 1. **Build from source** (recommended until distros catch up), or
+> 2. Verify your package gives `libcpdb.so.3.*` with
+>    `ls /usr/lib*/libcpdb.so.*` before relying on it.
+
+**Build cpdb-libs 3.x from source:**
 
 ```bash
-# Debian / Ubuntu
-sudo apt-get install libcpdb-dev libglib2.0-dev
+sudo apt-get install -y \
+    build-essential pkg-config autoconf automake libtool libtool-bin \
+    gettext autopoint libglib2.0-dev libdbus-1-dev libclang-dev \
+    libcups2-dev cups libavahi-common-dev libavahi-client-dev
 
-# Fedora / RHEL / CentOS
-sudo dnf install cpdb-libs-devel glib2-devel
-```
+# If you previously installed apt's older libcpdb*, remove it first:
+sudo apt-get remove --purge libcpdb-dev libcpdb2t64 2>/dev/null
 
-Building from source:
-
-```bash
-git clone https://github.com/OpenPrinting/cpdb-libs.git
+git clone --depth=1 https://github.com/OpenPrinting/cpdb-libs.git
 cd cpdb-libs
-./autogen.sh
+./autogen.sh || autoreconf -fi
 ./configure --prefix=/usr
 make -j"$(nproc)"
 sudo make install
 sudo ldconfig
 ```
 
+Fedora / RHEL: install `cpdb-libs-devel` from a 3.x-shipping repository,
+or build from source the same way.
+
 ### Rust
 
 Rust 1.85+ (2024 edition) is required.
+
+### libclang
+
+bindgen needs libclang at build time. On Debian/Ubuntu:
+
+```bash
+sudo apt-get install -y libclang-dev clang
+```
 
 ## Installation
 
@@ -347,16 +375,43 @@ cargo test -- --ignored
 
 ## Troubleshooting
 
-- **"cpdb-libs not found"** — Install `libcpdb-dev` / `cpdb-libs-devel`
-  so pkg-config can locate `cpdb.pc`. Override the discovery path with
+- **`undefined symbol: cpdbGetVersion` / `libcpdb.so.3, may conflict with libcpdb.so.2`** —
+  You have apt's older cpdb-libs **2.x** installed alongside the
+  source-built **3.x**. The linker is picking the v2 library. Fix:
+
+  ```bash
+  sudo apt-get remove --purge libcpdb-dev libcpdb2t64
+  sudo ldconfig
+  cd ~/cpdb-libs && sudo make install   # reinstall headers v2 took with it
+  cd /path/to/your/project && cargo clean && cargo build
+  ```
+
+- **`fatal error: 'cpdb/cpdb.h' file not found`** — Headers are missing
+  from `/usr/include/cpdb/`. Reinstall cpdb-libs from source (see
+  [Prerequisites](#prerequisites)).
+
+- **`Unable to find libclang` (bindgen)** — Install `libclang-dev` and
+  `clang` (Debian/Ubuntu) or the equivalent on your distro.
+
+- **`cpdb-libs not found`** — Install cpdb-libs 3.x so pkg-config can
+  locate `cpdb.pc`. Override the discovery path with
   `CPDB_LIBS_PATH=<prefix>` when working against an uninstalled checkout.
-- **"D-Bus connection failed"** — Confirm a session bus is running and
-  that print backends (CUPS, ...) are active.
-- **"No printers found"** — Verify printers are configured and the
+
+- **`D-Bus connection failed`** — Confirm a session bus is running and
+  that print backends (CUPS, ...) are active. In headless environments
+  use `dbus-launch --exit-with-session <command>` to spin up an
+  ephemeral session bus.
+
+- **`No printers found`** — Verify printers are configured and the
   relevant backend services are reachable over D-Bus.
-- **Linker errors** — Make sure pkg-config can resolve `cpdb` and
-  `cpdb-frontend`; on non-standard installs set
-  `PKG_CONFIG_PATH=<prefix>/lib/pkgconfig`.
+
+- **Linker errors on a non-standard cpdb-libs prefix** — Set
+  `PKG_CONFIG_PATH=<prefix>/lib/pkgconfig` so pkg-config can resolve
+  `cpdb` and `cpdb-frontend` from your install.
+
+- **`error: linker 'link.exe' not found` on Windows native** — cpdb-rs
+  does not support Windows targets. Develop inside WSL Ubuntu — the
+  repository on `/mnt/c/…` is reachable from WSL without copying.
 
 ## Contributing
 
