@@ -36,6 +36,13 @@ use crate::proxy::PrintBackendProxy;
 const AUTO_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const RETRY_INTERVAL_MS: Duration = Duration::from_millis(200);
 
+/// Retries a D-Bus proxy call once if the backend returns `UnknownMethod`.
+///
+/// This handles the activation race where systemd has started the backend
+/// process but it hasn't registered its methods yet. The retry is safe for
+/// all call sites because `UnknownMethod` guarantees no side-effect occurred
+/// (no job was created, no state was mutated). Arguments are evaluated twice
+/// on retry, which is fine since they are all side-effect-free references.
 macro_rules! retry_dbus {
     ($proxy:expr, $method:ident($($arg:expr),*)) => {{
         let __proxy = &($proxy);
@@ -320,7 +327,12 @@ impl CpdbClient {
         }
 
         for bh in &self.backends {
-            let _ = bh.proxy.do_listing(true).await;
+            if let Err(e) = bh.proxy.do_listing(true).await {
+                log::warn!(
+                    "cpdb-rs: do_listing failed for {}, discovery stream may be empty: {}",
+                    bh.service_name, e
+                );
+            }
         }
 
         let client = self.clone();

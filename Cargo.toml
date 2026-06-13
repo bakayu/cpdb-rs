@@ -7,11 +7,12 @@ version = "0.1.0"
 edition = "2024"
 description = "Safe Rust bindings for OpenPrinting cpdb-libs — Common Print Dialog Backends"
 license = "MIT"
-keywords = ["printing", "cups", "openprinting", "ffi", "cpdb"]
-categories = ["api-bindings", "os::unix-apis"]
+keywords = ["printing", "cups", "openprinting", "dbus", "cpdb"]
+categories = ["api-bindings", "asynchronous", "os::unix-apis"]
 readme = "README.md"
 repository = "https://github.com/OpenPrinting/cpdb-rs"
 rust-version = "1.85"
+exclude = ["PRODUCTION_READINESS.md"]
 
 [package.metadata.docs.rs]
 all-features = false
@@ -26,14 +27,14 @@ serde = { version = "1.0", features = ["derive"] }
 zbus = { version = "5.15.0", default-features = false, features = [
     "tokio",
 ], optional = true }
-futures-util = "0.3"
-tokio = "1"
+futures-util = { version = "0.3", optional = true }
+tokio = { version = "1", features = ["rt", "time"], optional = true }
 cpdb-sys = { path = "cpdb-sys", version = "0.1.0", optional = true }
 
 [features]
 default = ["zbus-backend"]
 ffi = ["dep:cpdb-sys"]
-zbus-backend = ["dep:zbus"]
+zbus-backend = ["dep:zbus", "dep:tokio", "dep:futures-util"]
 
 [dev-dependencies]
 tempfile = "3.27"
