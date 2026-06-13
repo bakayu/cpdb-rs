@@ -59,8 +59,8 @@ path = "examples/cpdb-text-frontend.rs"
 required-features = ["ffi"]
 
 [[example]]
-name = "zbus_test"
-path = "examples/zbus_test.rs"
+name = "discover_printers"
+path = "examples/discover_printers.rs"
 required-features = ["zbus-backend"]
 
 [[example]]
