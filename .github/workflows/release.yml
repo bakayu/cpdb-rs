@@ -111,13 +111,25 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
           LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
-        run: cargo publish -p cpdb-sys --verbose
+        run: |
+          VER=$(grep -m1 '^version' cpdb-sys/Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          if cargo search cpdb-sys --limit 1 | grep -q "cpdb-sys = \"$VER\""; then
+            echo "cpdb-sys $VER already published, skipping"
+          else
+            cargo publish -p cpdb-sys --verbose
+          fi
 
       - name: Publish cpdb-rs to crates.io (with retry for index propagation)
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
           LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
         run: |
+          VER=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          if cargo search cpdb-rs --limit 1 | grep -q "cpdb-rs = \"$VER\""; then
+            echo "cpdb-rs $VER already published, skipping"
+            exit 0
+          fi
+
           for i in {1..5}; do
             if cargo publish -p cpdb-rs --verbose; then
               echo "Successfully published cpdb-rs!"
