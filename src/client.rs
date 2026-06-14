@@ -272,17 +272,22 @@ impl CpdbClient {
             all.push(
                 added
                     .filter_map(|sig| async move {
-                        let a = sig.args().ok()?;
-                        Some(DiscoveryEvent::PrinterAdded(PrinterSnapshot {
-                            id: a.printer_id.to_string(),
-                            name: a.printer_name.to_string(),
-                            info: a.printer_info.to_string(),
-                            location: a.printer_location.to_string(),
-                            make_model: a.printer_make_and_model.to_string(),
-                            accepting_jobs: a.printer_is_accepting_jobs,
-                            state: a.printer_state.to_string(),
-                            backend: a.backend_name.to_string(),
-                        }))
+                        match sig.args() {
+                            Ok(a) => Some(DiscoveryEvent::PrinterAdded(PrinterSnapshot {
+                                id: a.printer_id.to_string(),
+                                name: a.printer_name.to_string(),
+                                info: a.printer_info.to_string(),
+                                location: a.printer_location.to_string(),
+                                make_model: a.printer_make_and_model.to_string(),
+                                accepting_jobs: a.printer_is_accepting_jobs,
+                                state: a.printer_state.to_string(),
+                                backend: a.backend_name.to_string(),
+                            })),
+                            Err(e) => {
+                                log::debug!("cpdb-rs: failed to parse PrinterAdded signal: {}", e);
+                                None
+                            }
+                        }
                     })
                     .boxed(),
             );
@@ -296,11 +301,19 @@ impl CpdbClient {
             all.push(
                 removed
                     .filter_map(|sig| async move {
-                        let a = sig.args().ok()?;
-                        Some(DiscoveryEvent::PrinterRemoved {
-                            id: a.printer_id.to_string(),
-                            backend: a.backend_name.to_string(),
-                        })
+                        match sig.args() {
+                            Ok(a) => Some(DiscoveryEvent::PrinterRemoved {
+                                id: a.printer_id.to_string(),
+                                backend: a.backend_name.to_string(),
+                            }),
+                            Err(e) => {
+                                log::debug!(
+                                    "cpdb-rs: failed to parse PrinterRemoved signal: {}",
+                                    e
+                                );
+                                None
+                            }
+                        }
                     })
                     .boxed(),
             );
@@ -314,13 +327,21 @@ impl CpdbClient {
             all.push(
                 changed
                     .filter_map(|sig| async move {
-                        let a = sig.args().ok()?;
-                        Some(DiscoveryEvent::PrinterStateChanged {
-                            id: a.printer_id.to_string(),
-                            backend: a.backend_name.to_string(),
-                            state: a.printer_state.to_string(),
-                            accepting_jobs: a.printer_is_accepting_jobs,
-                        })
+                        match sig.args() {
+                            Ok(a) => Some(DiscoveryEvent::PrinterStateChanged {
+                                id: a.printer_id.to_string(),
+                                backend: a.backend_name.to_string(),
+                                state: a.printer_state.to_string(),
+                                accepting_jobs: a.printer_is_accepting_jobs,
+                            }),
+                            Err(e) => {
+                                log::debug!(
+                                    "cpdb-rs: failed to parse PrinterStateChanged signal: {}",
+                                    e
+                                );
+                                None
+                            }
+                        }
                     })
                     .boxed(),
             );
