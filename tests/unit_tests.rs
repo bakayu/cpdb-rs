@@ -316,7 +316,6 @@ mod zbus_tests {
     use cpdb_rs::options::OptionsCollection;
     use cpdb_rs::proxy::{RawMargin, RawMedia, RawOption};
     use cpdb_rs::types::PrinterState;
-    use std::collections::HashMap;
 
     #[test]
     fn raw_option_debug_display() {
@@ -578,20 +577,23 @@ mod zbus_tests {
 
     #[test]
     fn config_roundtrip_preserves_all_fields() {
-        let mut settings = HashMap::new();
-        settings.insert("copies".to_string(), "5".to_string());
-        settings.insert("media".to_string(), "iso_a4_210x297mm".to_string());
-        settings.insert("sides".to_string(), "two-sided-long-edge".to_string());
-        settings.insert("print-color-mode".to_string(), "monochrome".to_string());
+        let mut config = PrinterConfig::new();
+        config.set_last_printer("HP-LaserJet", "CUPS");
+        config.set_global_setting("copies".to_string(), "5".to_string());
+        config.set_global_setting("media".to_string(), "iso_a4_210x297mm".to_string());
+        config.set_global_setting("sides".to_string(), "two-sided-long-edge".to_string());
+        config.set_global_setting("print-color-mode".to_string(), "monochrome".to_string());
 
-        let config = PrinterConfig::new("HP-LaserJet", "CUPS", settings);
         let json = serde_json::to_string_pretty(&config).unwrap();
         let loaded: PrinterConfig = serde_json::from_str(&json).unwrap();
 
         assert_eq!(loaded.last_printer_id.as_deref(), Some("HP-LaserJet"));
         assert_eq!(loaded.last_backend.as_deref(), Some("CUPS"));
-        assert_eq!(loaded.get_setting("copies"), Some("5"));
-        assert_eq!(loaded.get_setting("sides"), Some("two-sided-long-edge"));
+        assert_eq!(loaded.get_global_setting("copies"), Some("5"));
+        assert_eq!(
+            loaded.get_global_setting("sides"),
+            Some("two-sided-long-edge")
+        );
     }
 
     #[test]
