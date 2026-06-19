@@ -315,6 +315,7 @@ mod zbus_tests {
     use cpdb_rs::media::MediaCollection;
     use cpdb_rs::options::OptionsCollection;
     use cpdb_rs::proxy::{RawMargin, RawMedia, RawOption};
+    use cpdb_rs::types::PrinterState;
     use std::collections::HashMap;
 
     #[test]
@@ -512,7 +513,7 @@ mod zbus_tests {
             info: String::new(),
             location: String::new(),
             make_model: String::new(),
-            state: "idle".to_string(),
+            state: PrinterState::Idle,
             accepting_jobs: true,
             backend: "CUPS".to_string(),
         };
@@ -528,14 +529,14 @@ mod zbus_tests {
                 info: String::new(),
                 location: String::new(),
                 make_model: String::new(),
-                state: "idle".to_string(),
+                state: PrinterState::Idle,
                 accepting_jobs: true,
                 backend: "CUPS".to_string(),
             }),
             DiscoveryEvent::PrinterStateChanged {
                 id: "printer-1".to_string(),
                 backend: "CUPS".to_string(),
-                state: "printing".to_string(),
+                state: PrinterState::Processing,
                 accepting_jobs: true,
             },
             DiscoveryEvent::PrinterRemoved {

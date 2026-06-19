@@ -37,6 +37,11 @@ async fn main() -> cpdb_rs::Result<()> {
         println!("\n=== Details for '{}' ===", p.name);
         match client.get_printer_details(&p.id, &p.backend).await {
             Ok((options, media)) => {
+                println!(
+                    "Option Groups ({} total): {:?}",
+                    options.groups().len(),
+                    options.groups()
+                );
                 println!("Options ({} total):", options.len());
                 for opt in options.iter().take(8) {
                     println!(
@@ -94,6 +99,20 @@ async fn main() -> cpdb_rs::Result<()> {
             }
             DiscoveryEvent::PrinterStateChanged { id, state, .. } => {
                 println!("~ STATE: id={id}, state={state}");
+                match state {
+                    cpdb_rs::types::PrinterState::Stopped => {
+                        println!("  -> Status: Printer is stopped.");
+                    }
+                    cpdb_rs::types::PrinterState::Idle => {
+                        println!("  -> Status: Printer is idle and ready.");
+                    }
+                    cpdb_rs::types::PrinterState::Processing => {
+                        println!("  -> Status: Printer is processing a job.");
+                    }
+                    cpdb_rs::types::PrinterState::Unknown(raw) => {
+                        println!("  -> Status: Printer is in an unknown state: {raw}");
+                    }
+                }
             }
         }
     }

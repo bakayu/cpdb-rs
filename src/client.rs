@@ -32,6 +32,7 @@ use crate::events::{DiscoveryEvent, PrinterSnapshot};
 use crate::media::MediaCollection;
 use crate::options::OptionsCollection;
 use crate::proxy::PrintBackendProxy;
+use crate::types::PrinterState;
 
 const AUTO_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const RETRY_INTERVAL_MS: Duration = Duration::from_millis(200);
@@ -195,7 +196,7 @@ impl CpdbClient {
                     location: raw.3,
                     make_model: raw.4,
                     accepting_jobs: raw.5,
-                    state: raw.6,
+                    state: PrinterState::from(raw.6),
                     backend: raw.7,
                 });
             }
@@ -236,7 +237,7 @@ impl CpdbClient {
                     location: raw.3,
                     make_model: raw.4,
                     accepting_jobs: raw.5,
-                    state: raw.6,
+                    state: PrinterState::from(raw.6),
                     backend: raw.7,
                 });
             }
@@ -280,7 +281,7 @@ impl CpdbClient {
                                 location: a.printer_location.to_string(),
                                 make_model: a.printer_make_and_model.to_string(),
                                 accepting_jobs: a.printer_is_accepting_jobs,
-                                state: a.printer_state.to_string(),
+                                state: PrinterState::from(a.printer_state),
                                 backend: a.backend_name.to_string(),
                             })),
                             Err(e) => {
@@ -331,7 +332,7 @@ impl CpdbClient {
                             Ok(a) => Some(DiscoveryEvent::PrinterStateChanged {
                                 id: a.printer_id.to_string(),
                                 backend: a.backend_name.to_string(),
-                                state: a.printer_state.to_string(),
+                                state: PrinterState::from(a.printer_state),
                                 accepting_jobs: a.printer_is_accepting_jobs,
                             }),
                             Err(e) => {

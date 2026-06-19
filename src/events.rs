@@ -3,8 +3,10 @@
 //! These map directly to the D-Bus signals defined in the
 //! `org.openprinting.PrintBackend` interface.
 
+use crate::types::PrinterState;
+
 /// An event emitted during printer discovery or state monitoring.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiscoveryEvent {
     /// A printer was discovered or re-announced.
     PrinterAdded(PrinterSnapshot),
@@ -21,15 +23,15 @@ pub enum DiscoveryEvent {
         id: String,
         /// The backend that reported the change.
         backend: String,
-        /// The new state string.
-        state: String,
+        /// The new state.
+        state: PrinterState,
         /// Whether the printer is accepting new jobs.
         accepting_jobs: bool,
     },
 }
 
 /// Snapshot of a printer's identity and status at a point in time.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrinterSnapshot {
     /// The backend-assigned unique printer ID.
     pub id: String,
@@ -41,8 +43,8 @@ pub struct PrinterSnapshot {
     pub location: String,
     /// Make and model string (e.g. `"HP LaserJet Pro"`).
     pub make_model: String,
-    /// Current state string (e.g. `"idle"`, `"processing"`, `"stopped"`).
-    pub state: String,
+    /// Current state (e.g. idle, processing, stopped).
+    pub state: PrinterState,
     /// Whether the printer is currently accepting new jobs.
     pub accepting_jobs: bool,
     /// The backend that owns this printer (e.g. `"CUPS"`).
@@ -52,7 +54,13 @@ pub struct PrinterSnapshot {
 impl PrinterSnapshot {
     /// Returns `true` when the printer is idle and accepting jobs.
     pub fn is_ready(&self) -> bool {
-        self.state == "idle" && self.accepting_jobs
+        self.state == PrinterState::Idle && self.accepting_jobs
+    }
+}
+
+impl std::fmt::Display for PrinterSnapshot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} [{}] ({})", self.name, self.id, self.state)
     }
 }
 
@@ -67,7 +75,7 @@ mod tests {
             info: "Office printer".to_string(),
             location: "Room 42".to_string(),
             make_model: "HP LaserJet Pro MFP".to_string(),
-            state: "idle".to_string(),
+            state: PrinterState::Idle,
             accepting_jobs: true,
             backend: "CUPS".to_string(),
         }
@@ -82,7 +90,7 @@ mod tests {
     #[test]
     fn snapshot_not_ready_when_busy() {
         let mut snap = sample_snapshot();
-        snap.state = "printing".to_string();
+        snap.state = PrinterState::Processing;
         assert!(!snap.is_ready());
     }
 
@@ -127,7 +135,7 @@ mod tests {
         let event = DiscoveryEvent::PrinterStateChanged {
             id: "HP-123".to_string(),
             backend: "CUPS".to_string(),
-            state: "printing".to_string(),
+            state: PrinterState::Processing,
             accepting_jobs: true,
         };
         match &event {
@@ -136,7 +144,7 @@ mod tests {
                 accepting_jobs,
                 ..
             } => {
-                assert_eq!(state, "printing");
+                assert_eq!(state, &PrinterState::Processing);
                 assert!(*accepting_jobs);
             }
             _ => panic!("Expected PrinterStateChanged"),
@@ -148,5 +156,26 @@ mod tests {
         let event = DiscoveryEvent::PrinterAdded(sample_snapshot());
         let clone = event.clone();
         assert!(matches!(clone, DiscoveryEvent::PrinterAdded(_)));
+    }
+
+    #[test]
+    fn snapshot_display() {
+        let snap = sample_snapshot();
+        assert_eq!(
+            format!("{}", snap),
+            "HP LaserJet Pro [HP-LaserJet-Pro] (idle)"
+        );
+    }
+
+    #[test]
+    fn snapshot_equality_and_hashing() {
+        use std::collections::HashSet;
+        let snap1 = sample_snapshot();
+        let snap2 = sample_snapshot();
+        assert_eq!(snap1, snap2);
+
+        let mut set = HashSet::new();
+        set.insert(snap1.clone());
+        assert!(set.contains(&snap2));
     }
 }

@@ -82,6 +82,19 @@ impl OptionsCollection {
     pub fn iter(&self) -> impl Iterator<Item = &OptionInfo> {
         self.options.iter()
     }
+
+    /// Returns deduplicated group names of all options in their iteration order,
+    /// skipping empty group names.
+    pub fn groups(&self) -> Vec<&str> {
+        let mut seen = std::collections::HashSet::new();
+        let mut result = Vec::new();
+        for opt in &self.options {
+            if !opt.group.is_empty() && seen.insert(opt.group.as_str()) {
+                result.push(opt.group.as_str());
+            }
+        }
+        result
+    }
 }
 
 #[cfg(test)]
@@ -94,6 +107,7 @@ mod tests {
         assert!(col.is_empty());
         assert_eq!(col.len(), 0);
         assert!(col.get("copies").is_none());
+        assert!(col.groups().is_empty());
     }
 
     #[test]
@@ -142,5 +156,38 @@ mod tests {
         };
         assert_eq!(col.len(), 2);
         assert_eq!(col.iter().count(), 2);
+    }
+
+    #[test]
+    fn collection_groups() {
+        let col = OptionsCollection {
+            options: vec![
+                OptionInfo {
+                    name: "copies".to_string(),
+                    default_value: "1".to_string(),
+                    group: "General".to_string(),
+                    supported_values: vec![],
+                },
+                OptionInfo {
+                    name: "media".to_string(),
+                    default_value: "A4".to_string(),
+                    group: "Page Setup".to_string(),
+                    supported_values: vec![],
+                },
+                OptionInfo {
+                    name: "sides".to_string(),
+                    default_value: "one-sided".to_string(),
+                    group: "General".to_string(),
+                    supported_values: vec![],
+                },
+                OptionInfo {
+                    name: "fit-to-page".to_string(),
+                    default_value: "false".to_string(),
+                    group: "".to_string(),
+                    supported_values: vec![],
+                },
+            ],
+        };
+        assert_eq!(col.groups(), vec!["General", "Page Setup"]);
     }
 }
