@@ -1,54 +1,69 @@
 //! Example: Submit a print job via print_fd() with fallback to print_socket().
 //!
-//! Targets `dummy_printer` by default. Change PRINTER_ID for a different target.
+//! Accepts printer ID, file path, and optional backend name via command-line arguments.
 
 use cpdb_rs::{CpdbClient, CpdbError};
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixStream;
 
-/// Change this to target a different printer.
-const PRINTER_ID: &str = "dummy_printer";
-const BACKEND: &str = "CUPS";
-
 #[tokio::main]
 async fn main() -> cpdb_rs::Result<()> {
-    let client = CpdbClient::new().await?;
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 3 {
+        eprintln!(
+            "Usage: cargo run --example print_a_document <printer_id> <path_to_file> [backend]"
+        );
+        let client = CpdbClient::new().await?;
+        let _ = client.get_all_printers().await; // Warm up
+        let printers = client.get_all_printers().await?;
+        eprintln!("\nAvailable printers:");
+        for p in &printers {
+            eprintln!(
+                "  Name: {:<20} ID: {:<20} Backend: {}",
+                p.name, p.id, p.backend
+            );
+        }
+        return Ok(());
+    }
 
+    let printer_id = &args[1];
+    let file_path = &args[2];
+    let backend = if args.len() >= 4 { &args[3] } else { "CUPS" };
+
+    println!("Reading file: {}", file_path);
+    let postscript = match std::fs::read(file_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to read file '{}': {}", file_path, e);
+            return Ok(());
+        }
+    };
+
+    let client = CpdbClient::new().await?;
+    let _ = client.get_all_printers().await; // Warm up
     let printers = client.get_all_printers().await?;
-    let target = printers.iter().find(|p| p.id == PRINTER_ID);
+    let target = printers
+        .iter()
+        .find(|p| p.id.as_str() == printer_id && p.backend.as_str() == backend);
     match target {
         Some(p) => println!(
             "Target: {} [state={}, accepting={}]",
             p.name, p.state, p.accepting_jobs
         ),
         None => {
-            eprintln!("Printer '{}' not found. Available:", PRINTER_ID);
-            for p in &printers {
-                eprintln!("  {} [{}]", p.name, p.id);
-            }
-            return Ok(());
+            eprintln!(
+                "Warning: Printer '{}' not found in active list for backend '{}'. Trying anyway...",
+                printer_id, backend
+            );
         }
     }
 
-    let settings = [("copies", "1"), ("media", "iso_a4_210x297mm")];
-    let title = "cpdb-rs test page";
+    let settings = [("copies", "2"), ("media", "iso_a4_210x297mm")];
+    let title = "cpdb-rs CLI print test";
 
-    println!("\nSubmitting job to '{}'...", PRINTER_ID);
+    println!("\nSubmitting job to '{}' via {}...", printer_id, backend);
 
-    let postscript = b"%!PS-Adobe-3.0
-%%Title: cpdb-rs test page
-%%Pages: 1
-%%EndComments
-
-%%Page: 1 1
-/Helvetica findfont 24 scalefont setfont
-72 700 moveto
-(Hello from cpdb-rs!) show
-showpage
-%%EOF
-";
-
-    match client.print_fd(PRINTER_ID, BACKEND, &settings, title).await {
+    match client.print_fd(printer_id, backend, &settings, title).await {
         Ok((job_id, fd)) => {
             println!("printFd SUCCESS: Job ID: {}", job_id);
 
@@ -56,7 +71,7 @@ showpage
             let std_fd: std::os::fd::OwnedFd = fd.into();
             let mut file = std::fs::File::from(std_fd);
             use std::io::Write;
-            file.write_all(postscript).expect("Failed to write to FD");
+            file.write_all(&postscript).expect("Failed to write to FD");
             drop(file); // Signals EOF
 
             println!("Document written to FD and stream closed.");
@@ -67,7 +82,7 @@ showpage
             println!("printFd not supported by backend. Falling back to printSocket...");
 
             let (job_id, socket_path) = client
-                .print_socket(PRINTER_ID, BACKEND, &settings, title)
+                .print_socket(printer_id, backend, &settings, title)
                 .await?;
 
             println!(
@@ -80,7 +95,7 @@ showpage
                 .expect("Failed to connect to print socket");
 
             stream
-                .write_all(postscript)
+                .write_all(&postscript)
                 .await
                 .expect("Failed to write to socket");
 
