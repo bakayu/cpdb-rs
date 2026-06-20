@@ -37,6 +37,8 @@ use crate::types::PrinterState;
 const AUTO_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const RETRY_INTERVAL_MS: Duration = Duration::from_millis(200);
 
+type RawPrinterTuple = (String, String, String, String, String, bool, String, String);
+
 /// Retries a D-Bus proxy call once if the backend returns `UnknownMethod`.
 ///
 /// This handles the activation race where systemd has started the backend
@@ -188,7 +190,17 @@ impl CpdbClient {
                 }
             };
 
-            for raw in raw_printers {
+            for val in raw_printers {
+                let tuple: std::result::Result<RawPrinterTuple, zbus::zvariant::Error> =
+                    val.0.try_into();
+                let raw = match tuple {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("cpdb-rs: error unpacking printer variant: {}", e);
+                        continue;
+                    }
+                };
+
                 printers.push(PrinterSnapshot {
                     id: raw.0,
                     name: raw.1,
@@ -229,7 +241,17 @@ impl CpdbClient {
                 }
             };
 
-            for raw in raw_printers {
+            for val in raw_printers {
+                let tuple: std::result::Result<RawPrinterTuple, zbus::zvariant::Error> =
+                    val.0.try_into();
+                let raw = match tuple {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("cpdb-rs: error unpacking filtered printer variant: {}", e);
+                        continue;
+                    }
+                };
+
                 printers.push(PrinterSnapshot {
                     id: raw.0,
                     name: raw.1,

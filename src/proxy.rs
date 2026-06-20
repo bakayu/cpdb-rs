@@ -78,13 +78,13 @@ pub struct RawPrinter(
 #[proxy(interface = "org.openprinting.PrintBackend", assume_defaults = true)]
 pub trait PrintBackend {
     /// Returns all printers known to this backend.
-    fn get_all_printers(&self) -> zbus::Result<(i32, Vec<RawPrinter>)>;
+    fn get_all_printers(&self) -> zbus::Result<(i32, Vec<(zbus::zvariant::OwnedValue,)>)>;
 
     /// Returns the backend name (e.g. "CUPS", "FILE").
     fn get_backend_name(&self) -> zbus::Result<String>;
 
     /// Returns printers matching the current filter settings.
-    fn get_filtered_printer_list(&self) -> zbus::Result<(i32, Vec<RawPrinter>)>;
+    fn get_filtered_printer_list(&self) -> zbus::Result<(i32, Vec<(zbus::zvariant::OwnedValue,)>)>;
 
     /// Starts or stops printer discovery. Call `do_listing(true)` to trigger
     /// `PrinterAdded` signals for all known printers.
