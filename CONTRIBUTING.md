@@ -176,13 +176,26 @@ For feature requests, please include:
 
 ## Release Process
 
-Releases are managed by maintainers:
+Releases are managed by maintainers. Since this project is structured as a workspace, **`cpdb-sys` must be published to crates.io before `cpdb-rs`**.
 
-1. Update version in `Cargo.toml`
-2. Update `CHANGELOG.md`
-3. Create release tag
-4. Publish to crates.io
-5. Create GitHub release
+1. Update the version in `cpdb-sys/Cargo.toml`.
+2. Update the version in `Cargo.toml` (both for `cpdb-rs` package version and the `cpdb-sys` dependency version in `[dependencies]`).
+3. Update `CHANGELOG.md`.
+4. Create a release tag (e.g., `v0.1.0`).
+5. Publish `cpdb-sys` first:
+
+```bash
+cd cpdb-sys
+cargo publish
+```
+
+6. Publish `cpdb-rs`:
+
+```bash
+cargo publish
+```
+
+7. Create the GitHub release.
 
 ## Community Guidelines
 

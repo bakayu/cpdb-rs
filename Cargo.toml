@@ -1,23 +1,22 @@
+[workspace]
+members = ["cpdb-sys"]
+
 [package]
 name = "cpdb-rs"
 version = "0.1.0"
 edition = "2024"
 description = "Safe Rust bindings for OpenPrinting cpdb-libs — Common Print Dialog Backends"
 license = "MIT"
-keywords = ["printing", "cups", "openprinting", "ffi", "cpdb"]
-categories = ["api-bindings", "os::unix-apis"]
+keywords = ["printing", "cups", "openprinting", "dbus", "cpdb"]
+categories = ["api-bindings", "asynchronous", "os::unix-apis"]
 readme = "README.md"
 repository = "https://github.com/OpenPrinting/cpdb-rs"
 homepage = "https://openprinting.github.io/"
 documentation = "https://docs.rs/cpdb-rs"
 rust-version = "1.85"
-build = "build.rs"
-links = "cpdb"
-# Internal project docs and CI config aren't useful to consumers and just bloat
-# the .crate tarball. include/wrapper.h MUST stay in the package — build.rs
-# feeds it to bindgen at the consumer's build time.
 exclude = [
     ".github/",
+    "target",
     "PRODUCTION_READINESS.md",
     "RELEASE_GOVERNANCE.md",
     "PUBLISHING.md",
@@ -33,14 +32,59 @@ targets = ["x86_64-unknown-linux-gnu"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-libc = "0.2"
 thiserror = "2.0"
 log = "0.4"
-glib-sys = "0.22"
+serde = { version = "1.0", features = ["derive"] }
+zbus = { version = "5.15.0", default-features = false, features = [
+    "tokio",
+], optional = true }
+futures-util = { version = "0.3", optional = true }
+tokio = { version = "1", features = ["rt", "time"], optional = true }
+cpdb-sys = { path = "cpdb-sys", version = "0.1.0", optional = true }
 
-[build-dependencies]
-bindgen = "0.72"
-pkg-config = "0.3"
+[features]
+default = ["zbus-backend"]
+ffi = ["dep:cpdb-sys"]
+zbus-backend = ["dep:zbus", "dep:tokio", "dep:futures-util"]
 
 [dev-dependencies]
 tempfile = "3.27"
+serde_json = "1.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+libc = "0.2"
+glib-sys = "0.22"
+
+[[example]]
+name = "ffi_basic_usage"
+path = "examples/ffi_basic_usage.rs"
+required-features = ["ffi"]
+
+[[example]]
+name = "ffi_cli_printer_manager"
+path = "examples/ffi_cli_printer_manager.rs"
+required-features = ["ffi"]
+
+[[example]]
+name = "cpdb_text_frontend"
+path = "examples/cpdb-text-frontend.rs"
+required-features = ["ffi"]
+
+[[example]]
+name = "discover_printers"
+path = "examples/discover_printers.rs"
+required-features = ["zbus-backend"]
+
+[[example]]
+name = "filter_printers"
+path = "examples/filter_printers.rs"
+required-features = ["zbus-backend"]
+
+[[example]]
+name = "get_translations"
+path = "examples/get_translations.rs"
+required-features = ["zbus-backend"]
+
+[[example]]
+name = "print_a_document"
+path = "examples/print_a_document.rs"
+required-features = ["zbus-backend"]

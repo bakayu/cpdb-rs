@@ -107,11 +107,39 @@ jobs:
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - name: Publish to crates.io
+      - name: Publish cpdb-sys to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
           LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
-        run: cargo publish --verbose
+        run: |
+          VER=$(grep -m1 '^version' cpdb-sys/Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          if cargo search cpdb-sys --limit 1 | grep -q "cpdb-sys = \"$VER\""; then
+            echo "cpdb-sys $VER already published, skipping"
+          else
+            cargo publish -p cpdb-sys --verbose
+          fi
+
+      - name: Publish cpdb-rs to crates.io (with retry for index propagation)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
+        run: |
+          VER=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          if cargo search cpdb-rs --limit 1 | grep -q "cpdb-rs = \"$VER\""; then
+            echo "cpdb-rs $VER already published, skipping"
+            exit 0
+          fi
+
+          for i in {1..5}; do
+            if cargo publish -p cpdb-rs --verbose; then
+              echo "Successfully published cpdb-rs!"
+              exit 0
+            fi
+            echo "Publish failed (likely waiting for cpdb-sys index propagation). Retrying in 15 seconds..."
+            sleep 15
+          done
+          echo "Failed to publish cpdb-rs after 5 attempts."
+          exit 1
 
   release:
     name: GitHub Release
