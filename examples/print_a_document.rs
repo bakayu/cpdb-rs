@@ -76,8 +76,12 @@ async fn main() -> cpdb_rs::Result<()> {
 
             println!("Document written to FD and stream closed.");
         }
-        Err(CpdbError::DbusError(zbus::Error::MethodError(name, _, _)))
-            if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" =>
+        // DbusError now carries a rendered String (feature-stable across
+        // zbus-backend on/off). The rendering starts with the D-Bus error
+        // name, so a substring probe reliably detects UnknownMethod without
+        // depending on the untranslated Display of a specific zbus variant.
+        Err(CpdbError::DbusError(ref msg))
+            if msg.contains("org.freedesktop.DBus.Error.UnknownMethod") =>
         {
             println!("printFd not supported by backend. Falling back to printSocket...");
 

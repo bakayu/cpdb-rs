@@ -64,15 +64,40 @@ pub enum CpdbError {
     #[error("Unsupported operation")]
     Unsupported,
 
-    /// A D-Bus protocol error occurred.
-    #[cfg(feature = "zbus-backend")]
+    /// A D-Bus protocol error occurred. The inner string is a
+    /// human-readable rendering (typically starts with the D-Bus error
+    /// name, e.g. `"org.freedesktop.DBus.Error.UnknownMethod: ..."`).
+    ///
+    /// The variant is exposed even when the `zbus-backend` feature is
+    /// disabled so downstream match arms remain valid across every
+    /// feature combination.
     #[error("D-Bus error: {0}")]
-    DbusError(#[from] zbus::Error),
+    DbusError(String),
 
-    /// A D-Bus FDO standard error occurred.
-    #[cfg(feature = "zbus-backend")]
+    /// A D-Bus FDO (freedesktop.org) standard error occurred. See
+    /// [`DbusError`](Self::DbusError) for the rationale on the unconditional
+    /// `String` payload.
     #[error("D-Bus FDO error: {0}")]
-    FdoError(#[from] zbus::fdo::Error),
+    FdoError(String),
+}
+
+/// Converts a `zbus::Error` into a [`CpdbError::DbusError`] by rendering it
+/// with `Display`. Only compiled when the `zbus-backend` feature is enabled.
+#[cfg(feature = "zbus-backend")]
+impl From<zbus::Error> for CpdbError {
+    fn from(e: zbus::Error) -> Self {
+        Self::DbusError(e.to_string())
+    }
+}
+
+/// Converts a `zbus::fdo::Error` into a [`CpdbError::FdoError`] by rendering
+/// it with `Display`. Only compiled when the `zbus-backend` feature is
+/// enabled.
+#[cfg(feature = "zbus-backend")]
+impl From<zbus::fdo::Error> for CpdbError {
+    fn from(e: zbus::fdo::Error) -> Self {
+        Self::FdoError(e.to_string())
+    }
 }
 
 /// Shorthand `Result` alias used throughout the crate.
