@@ -23,22 +23,37 @@ The library uses [`zbus`](https://crates.io/crates/zbus) and [`tokio`](https://c
 
 ## Supported platforms
 
-Because `cpdb-rs` (`zbus-backend` feature only) communicates directly over D-Bus, you do not need to install the `cpdb-libs` C development headers to build this project.
-However, your system must have CPDB backend installed to actually discover any printers.
+The default (`zbus-backend`) install is pure Rust and does not link
+`cpdb-libs`. Requirements are minimal and Unix-only.
 
-### For `ffi` feature:
-
-| Target | Status | Notes |
+| Target | `zbus-backend` (default) | `ffi` (opt-in) |
 |---|---|---|
-| Linux (any glibc distro) | ✅ Fully supported | The intended target. CI runs on Ubuntu. |
-| macOS | ⚠️ Headers-only | Bindgen can parse the headers and the crate compiles with `CPDB_NO_LINK=1`, but linking requires Linux D-Bus. Useful only for compile-checking. |
-| Windows | ❌ Not supported | cpdb-libs has no Windows port (D-Bus / GLib stack). Compilation will hard-fail with a `compile_error!`. Develop inside [WSL Ubuntu](https://learn.microsoft.com/windows/wsl/install) — the repository on `/mnt/c/…` is reachable from WSL. |
+| Linux (glibc) | ✅ Fully supported. CI runs on Ubuntu. | ✅ Fully supported. |
+| macOS | ✅ Compiles. Runtime requires a session bus and a CPDB backend. | ⚠️ Headers-only. Bindgen parses the headers and the crate compiles with `CPDB_NO_LINK=1`, but linking requires Linux D-Bus — useful only for compile-checks. |
+| Windows | ⚠️ Compiles under the `zbus` session-bus support, but there is no CPDB backend daemon on Windows to talk to. Practical development happens inside [WSL Ubuntu](https://learn.microsoft.com/windows/wsl/install). | ❌ Not supported. `cpdb-libs` has no Windows port. Use WSL. |
 
-### Prerequisites
+At runtime, whichever backend you pick, your system must have at least
+one CPDB backend service installed (e.g. `cpdb-backend-cups`) for
+printer discovery to return anything.
+
+### Prerequisites (default `zbus-backend`)
+
+- Rust **1.85+** (2024 edition).
+- A running D-Bus session bus.
+- At least one CPDB backend service reachable on that bus for anything
+  useful to happen at runtime.
+
+That's it — no C compiler, no `libcpdb-dev`, no `bindgen`. Skip straight
+to [Installation](#installation).
+
+### Prerequisites (for the `ffi` feature)
+
+Everything below is only needed if you opt in with
+`--features ffi` (or `default-features = false, features = ["ffi"]`).
 
 #### cpdb-libs (≥ 3.0)
 
-cpdb-rs targets the cpdb-libs **3.x ABI**.
+The `ffi` feature targets the cpdb-libs **3.x ABI**.
 
 > ⚠️ **Distro packages may be too old.** As of mid-2026, Debian / Ubuntu
 > ship cpdb-libs **2.0~b5** in `libcpdb-dev`. That is incompatible with
@@ -73,11 +88,7 @@ sudo ldconfig
 Fedora / RHEL: install `cpdb-libs-devel` from a 3.x-shipping repository,
 or build from source the same way.
 
-#### Rust
-
-Rust 1.85+ (2024 edition) is required.
-
-### libclang
+#### libclang
 
 bindgen needs libclang at build time. On Debian/Ubuntu:
 
@@ -87,11 +98,25 @@ sudo apt-get install -y libclang-dev clang
 
 ## Installation
 
+Default install — pure Rust, no C dependencies:
+
 ```toml
 [dependencies]
 cpdb-rs = "0.1.0"
-tokio = { version = "1.0", features = ["full"] }
+tokio  = { version = "1.0", features = ["full"] }
 ```
+
+Legacy synchronous C-FFI wrappers (requires `cpdb-libs` 3.x and
+`libclang` at build time — see [Prerequisites (for the `ffi`
+feature)](#prerequisites-for-the-ffi-feature)):
+
+```toml
+[dependencies]
+cpdb-rs = { version = "0.1.0", default-features = false, features = ["ffi"] }
+```
+
+Enabling both features at once is supported: the default `zbus-backend`
+API and the FFI wrappers coexist.
 
 ## Quick start
 
@@ -187,10 +212,20 @@ async fn main() -> cpdb_rs::Result<()> {
 }
 ```
 
-You can run the full interactive test example using:
+You can run any of the shipped examples against your live D-Bus session:
 
 ```bash
-cargo run --example zbus_test
+cargo run --example discover_printers    # list every printer every backend reports
+cargo run --example filter_printers      # apply a Rust-side filter over the snapshot
+cargo run --example get_translations     # localise option / choice labels
+cargo run --example print_a_document     # end-to-end job submission
+```
+
+FFI-flavoured examples are gated on the `ffi` feature:
+
+```bash
+cargo run --example ffi_basic_usage         --no-default-features --features ffi
+cargo run --example ffi_cli_printer_manager --no-default-features --features ffi
 ```
 
 ## Architecture (zbus Backend)
@@ -303,27 +338,49 @@ match some_op() {
 }
 ```
 
-## Building on macOS
+## Building the `ffi` feature on macOS
 
-macOS is supported for header parsing and compilation only. Linking
-requires a Linux environment with D-Bus. Use `CPDB_NO_LINK=1` to skip
-link directives:
+The `ffi` feature can be *compiled* on macOS but not linked without a
+Linux D-Bus environment. Use `CPDB_NO_LINK=1` to skip link directives:
 
 ```bash
-CPDB_NO_LINK=1 cargo build --lib
+CPDB_NO_LINK=1 cargo build --lib --no-default-features --features ffi
 ```
+
+The default `zbus-backend` build has no such caveat on macOS.
 
 ## Testing
 
 ```bash
-# Tests that do not need a live D-Bus
-cargo test
+# Unit tests — no live D-Bus required
+cargo test --workspace
 
-# Integration tests — require a running session bus and cpdb backends
-cargo test -- --ignored
+# Integration tests — require a running session bus and CPDB backends
+cargo test --workspace -- --ignored
 ```
 
 ## Troubleshooting
+
+### Default (`zbus-backend`)
+
+- **`D-Bus connection failed` / `zbus: Address::from_env failed`** —
+  Confirm a session bus is running (`echo $DBUS_SESSION_BUS_ADDRESS`)
+  and that CPDB backend services (e.g. `cpdb-backend-cups`) are
+  installed. In headless environments spin up an ephemeral bus with
+  `dbus-launch --exit-with-session <command>`.
+
+- **`No printers found`** — Verify printers are configured in the
+  underlying spooler (CUPS, IPP, …) and the corresponding CPDB
+  backend service is reachable over the session bus. A backend can
+  take a moment to auto-activate; `CpdbClient` retries a few times,
+  but a fully idle bus will still return an empty list.
+
+- **Windows native builds compile but nothing is discovered** — Expected.
+  There is no CPDB backend daemon on Windows; use WSL Ubuntu (the
+  repository on `/mnt/c/…` is reachable from WSL without copying) for
+  actual runtime work.
+
+### `ffi` feature only
 
 - **`undefined symbol: cpdbGetVersion` / `libcpdb.so.3, may conflict with libcpdb.so.2`** —
   You have apt's older cpdb-libs **2.x** installed alongside the
@@ -333,12 +390,12 @@ cargo test -- --ignored
   sudo apt-get remove --purge libcpdb-dev libcpdb2t64
   sudo ldconfig
   cd ~/cpdb-libs && sudo make install   # reinstall headers v2 took with it
-  cd /path/to/your/project && cargo clean && cargo build
+  cd /path/to/your/project && cargo clean && cargo build --features ffi
   ```
 
 - **`fatal error: 'cpdb/cpdb.h' file not found`** — Headers are missing
   from `/usr/include/cpdb/`. Reinstall cpdb-libs from source (see
-  [Prerequisites](#prerequisites)).
+  [Prerequisites (for the `ffi` feature)](#prerequisites-for-the-ffi-feature)).
 
 - **`Unable to find libclang` (bindgen)** — Install `libclang-dev` and
   `clang` (Debian/Ubuntu) or the equivalent on your distro.
@@ -347,31 +404,32 @@ cargo test -- --ignored
   locate `cpdb.pc`. Override the discovery path with
   `CPDB_LIBS_PATH=<prefix>` when working against an uninstalled checkout.
 
-- **`D-Bus connection failed`** — Confirm a session bus is running and
-  that print backends (CUPS, ...) are active. In headless environments
-  use `dbus-launch --exit-with-session <command>` to spin up an
-  ephemeral session bus.
-
-- **`No printers found`** — Verify printers are configured and the
-  relevant backend services are reachable over D-Bus.
-
 - **Linker errors on a non-standard cpdb-libs prefix** — Set
   `PKG_CONFIG_PATH=<prefix>/lib/pkgconfig` so pkg-config can resolve
   `cpdb` and `cpdb-frontend` from your install.
 
-- **`error: linker 'link.exe' not found` on Windows native** — cpdb-rs
-  does not support Windows targets. Develop inside WSL Ubuntu — the
-  repository on `/mnt/c/…` is reachable from WSL without copying.
+- **`error: linker 'link.exe' not found` on Windows native** — The
+  `ffi` feature does not support Windows targets. Develop inside WSL
+  Ubuntu.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. Fork and clone.
-2. `cargo build` — verify the toolchain finds cpdb-libs.
+2. `cargo build --workspace --all-targets` — the default
+   (`zbus-backend`) path needs no C dependencies. If you also want to
+   touch the `ffi` path, install cpdb-libs 3.x first (see
+   [Prerequisites (for the `ffi` feature)](#prerequisites-for-the-ffi-feature))
+   and add `--features ffi`.
 3. Make changes, add tests.
-4. Ensure `cargo test`, `cargo fmt --check`, and
-   `cargo clippy --all-targets -- -D warnings` pass.
+4. Ensure the following all pass:
+
+   ```bash
+   cargo fmt --all -- --check
+   cargo clippy --workspace --all-targets -- -D warnings
+   cargo test --workspace --all-targets
+   ```
 5. Open a pull request.
 
 ## License
@@ -380,7 +438,7 @@ MIT — see [LICENSE](LICENSE).
 
 ## Related projects
 
-- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs) — the C library this crate binds to.
+- [cpdb-libs](https://github.com/OpenPrinting/cpdb-libs) — the upstream C library. `cpdb-rs` speaks its D-Bus protocol directly on the default backend, and wraps its C API when built with `--features ffi`.
 - [OpenPrinting](https://openprinting.org/)
 - [CUPS](https://www.cups.org/)
 
