@@ -114,6 +114,7 @@ async fn main() -> cpdb_rs::Result<()> {
                     }
                 }
             }
+            _ => {}
         }
     }
 

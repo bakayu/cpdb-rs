@@ -568,6 +568,7 @@ mod zbus_tests {
                 DiscoveryEvent::PrinterRemoved { id, backend } => {
                     printers.retain(|p| !(p.id == id && p.backend == backend));
                 }
+                _ => {}
             }
         }
 

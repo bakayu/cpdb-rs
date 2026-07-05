@@ -127,6 +127,7 @@ mod zbus_integration {
                 } => {
                     println!("  ~ StateChanged: id={id}, state={state}, backend={backend}");
                 }
+                _ => {}
             }
         }
 

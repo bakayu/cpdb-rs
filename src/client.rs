@@ -34,7 +34,15 @@ use crate::options::OptionsCollection;
 use crate::proxy::PrintBackendProxy;
 use crate::types::PrinterState;
 
-const AUTO_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
+/// The inactivity window after which a CPDB backend process auto-exits.
+///
+/// Backends terminate themselves after this long with no D-Bus activity.
+/// Users of [`CpdbClient::discovery_stream`] don't need to think about
+/// this — the returned stream spawns a keep-alive task that pings at
+/// `BACKEND_INACTIVITY_TIMEOUT / 3`. Exposed for callers that drive
+/// their own keep-alive loops (see the `discover_printers` example).
+pub const BACKEND_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(30);
+
 const RETRY_INTERVAL_MS: Duration = Duration::from_millis(200);
 
 type RawPrinterTuple = (String, String, String, String, String, bool, String, String);
@@ -382,7 +390,10 @@ impl CpdbClient {
 
         let client = self.clone();
         let keep_alive_task = tokio::spawn(async move {
-            let ping_interval = std::time::Duration::from_secs(AUTO_EXIT_TIMEOUT.as_secs() / 2);
+            // Ping at 1/3 of the backend timeout so a single delayed tick
+            // doesn't let the backend exit. /2 was too tight — a stalled
+            // runtime task could miss the window entirely.
+            let ping_interval = Duration::from_secs(BACKEND_INACTIVITY_TIMEOUT.as_secs() / 3);
             loop {
                 tokio::time::sleep(ping_interval).await;
                 client.keep_alive_all().await;

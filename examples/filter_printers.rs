@@ -23,6 +23,7 @@ async fn main() -> cpdb_rs::Result<()> {
                 DiscoveryEvent::PrinterStateChanged { id, state, .. } => {
                     println!("    [SIGNAL] ~ STATE: {} -> {}", id, state);
                 }
+                _ => {}
             }
         }
     });

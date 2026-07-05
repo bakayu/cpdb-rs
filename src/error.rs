@@ -43,7 +43,8 @@ pub enum CpdbError {
     #[error("Option error: {0}")]
     OptionError(String),
 
-    /// A C string returned by cpdb-libs contained invalid UTF-8.
+    /// A byte sequence returned by the backend (cpdb-libs C string or a
+    /// D-Bus payload) contained invalid UTF-8.
     #[error("Invalid UTF-8 string: {0}")]
     Utf8Error(#[from] Utf8Error),
 

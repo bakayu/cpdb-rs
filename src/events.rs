@@ -6,7 +6,12 @@
 use crate::types::PrinterState;
 
 /// An event emitted during printer discovery or state monitoring.
+///
+/// Marked `#[non_exhaustive]` so a future backend event kind can be
+/// added without breaking downstream matches — always include a `_`
+/// arm.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum DiscoveryEvent {
     /// A printer was discovered or re-announced.
     PrinterAdded(PrinterSnapshot),
