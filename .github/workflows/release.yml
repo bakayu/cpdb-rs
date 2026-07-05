@@ -53,16 +53,23 @@ jobs:
       - name: Tests
         env:
           LD_LIBRARY_PATH: /usr/lib:/usr/local/lib
-        run: cargo test --all --verbose
+        run: cargo test --workspace --verbose
 
-      - name: Verify tag matches Cargo.toml
+      - name: Verify tag matches Cargo.toml versions (workspace)
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          crate=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
-          if [ "$tag" != "$crate" ]; then
-            echo "Tag $tag does not match Cargo.toml version $crate" >&2
-            exit 1
+          top=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          sys=$(grep -m1 '^version' cpdb-sys/Cargo.toml | sed -E 's/.*"(.+)".*/\1/')
+          fail=0
+          if [ "$tag" != "$top" ]; then
+            echo "Tag $tag does not match top-level Cargo.toml version $top" >&2
+            fail=1
           fi
+          if [ "$tag" != "$sys" ]; then
+            echo "Tag $tag does not match cpdb-sys/Cargo.toml version $sys" >&2
+            fail=1
+          fi
+          exit $fail
 
   publish:
     name: Publish to crates.io (Trusted Publishing)

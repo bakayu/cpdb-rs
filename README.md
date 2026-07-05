@@ -30,7 +30,7 @@ The default (`zbus-backend`) install is pure Rust and does not link
 |---|---|---|
 | Linux (glibc) | ✅ Fully supported. CI runs on Ubuntu. | ✅ Fully supported. |
 | macOS | ✅ Compiles. Runtime requires a session bus and a CPDB backend. | ⚠️ Headers-only. Bindgen parses the headers and the crate compiles with `CPDB_NO_LINK=1`, but linking requires Linux D-Bus — useful only for compile-checks. |
-| Windows | ⚠️ Compiles under the `zbus` session-bus support, but there is no CPDB backend daemon on Windows to talk to. Practical development happens inside [WSL Ubuntu](https://learn.microsoft.com/windows/wsl/install). | ❌ Not supported. `cpdb-libs` has no Windows port. Use WSL. |
+| Windows | ❌ Not supported. Develop inside [WSL Ubuntu](https://learn.microsoft.com/windows/wsl/install) — the repository on `/mnt/c/…` is reachable from WSL without copying. | ❌ Not supported. Use WSL. |
 
 At runtime, whichever backend you pick, your system must have at least
 one CPDB backend service installed (e.g. `cpdb-backend-cups`) for
@@ -375,10 +375,9 @@ cargo test --workspace -- --ignored
   take a moment to auto-activate; `CpdbClient` retries a few times,
   but a fully idle bus will still return an empty list.
 
-- **Windows native builds compile but nothing is discovered** — Expected.
-  There is no CPDB backend daemon on Windows; use WSL Ubuntu (the
-  repository on `/mnt/c/…` is reachable from WSL without copying) for
-  actual runtime work.
+- **Windows is not supported** — no CPDB backend daemon exists on
+  Windows. Develop inside WSL Ubuntu; the repository on `/mnt/c/…` is
+  reachable from WSL without copying.
 
 ### `ffi` feature only
 

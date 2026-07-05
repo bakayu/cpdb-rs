@@ -2,7 +2,7 @@
 name = "cpdb-sys"
 version = "0.1.0"
 edition = "2024"
-description = "FFI bindings for cpdb-libs"
+description = "Low-level FFI bindings for OpenPrinting cpdb-libs (Common Print Dialog Backends). See cpdb-rs for the high-level API."
 license = "MIT"
 keywords = ["printing", "cups", "openprinting", "ffi", "cpdb"]
 categories = ["api-bindings", "external-ffi-bindings", "os::unix-apis"]
@@ -13,6 +13,12 @@ repository = "https://github.com/OpenPrinting/cpdb-rs"
 rust-version = "1.85"
 build = "build.rs"
 links = "cpdb"
+
+[package.metadata.docs.rs]
+all-features = false
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 libc = "0.2"

@@ -4,7 +4,12 @@ All notable changes to cpdb-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-07-05
+
+First public release on crates.io. Bundles `cpdb-sys 0.1.0` (raw FFI
+bindings) as an optional dependency behind the `ffi` feature; the
+default `zbus-backend` feature is a native async Rust D-Bus client and
+does not link `cpdb-libs`.
 
 ### Fixed
 
@@ -139,6 +144,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README: Architecture section with ASCII diagram, per-module map,
   and a `Printer::add_setting` vs `Settings::add_setting` scope table.
 
-## [0.1.0] - 2024-01-XX
-
-Initial pre-release. See git history for details.
