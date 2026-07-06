@@ -1,6 +1,6 @@
 [package]
 name = "cpdb-sys"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Low-level FFI bindings for OpenPrinting cpdb-libs (Common Print Dialog Backends). See cpdb-rs for the high-level API."
 license = "MIT"

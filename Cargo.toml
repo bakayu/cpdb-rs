@@ -3,7 +3,7 @@ members = ["cpdb-sys"]
 
 [package]
 name = "cpdb-rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Safe Rust bindings for OpenPrinting cpdb-libs — Common Print Dialog Backends"
 license = "MIT"
@@ -40,7 +40,7 @@ zbus = { version = "5.15.0", default-features = false, features = [
 ], optional = true }
 futures-util = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["rt", "time"], optional = true }
-cpdb-sys = { path = "cpdb-sys", version = "0.1.0", optional = true }
+cpdb-sys = { path = "cpdb-sys", version = "0.1.1", optional = true }
 
 [features]
 default = ["zbus-backend"]

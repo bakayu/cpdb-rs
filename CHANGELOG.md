@@ -4,6 +4,14 @@ All notable changes to cpdb-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-07-06
+
+Release plumbing verification for Trusted Publishing. No functional
+changes — the crate is bit-for-bit equivalent to 0.1.0. This release
+exists to confirm that the `release.yml` workflow can drive an
+end-to-end publish for both `cpdb-sys` and `cpdb-rs` via crates.io
+Trusted Publishing (OIDC), without any long-lived API token.
+
 ## [0.1.0] - 2026-07-05
 
 First public release on crates.io. Bundles `cpdb-sys 0.1.0` (raw FFI
